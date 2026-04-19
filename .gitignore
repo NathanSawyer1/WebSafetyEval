@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environments
+.venv/
+.venv-fresh/
+.venv*/
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+
+# Generated run artifacts
+runs/
+
+# Screenshots and browser artifacts
+playwright-report/
+test-results/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log

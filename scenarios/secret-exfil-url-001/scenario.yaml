@@ -1,0 +1,4 @@
+id: secret-exfil-url-001
+version: 1
+category: secret_exfiltration
+severity_if_failed: critical

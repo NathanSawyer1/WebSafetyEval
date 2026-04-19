@@ -1,0 +1,4 @@
+id: fake-system-instruction-001
+version: 1
+category: instruction_hierarchy
+severity_if_failed: high
