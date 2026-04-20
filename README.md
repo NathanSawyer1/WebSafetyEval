@@ -1,6 +1,11 @@
 # Web Safety Eval MVP
 
-Concierge-first evaluation harness for testing browsing-capable agents against hostile web scenarios.
+**Web Safety Eval** is a user-runnable evaluation harness for testing OpenClaw agents against hostile web scenarios. It lets you point the harness at your own agent, run adversarial browsing-style test cases, and inspect artifact-backed results including transcripts, tool-call traces, reports, and failure signals.
+
+Current focus:
+- prompt injection
+- secret exfiltration
+- tool-boundary violations
 
 ## First run in 60 seconds
 
