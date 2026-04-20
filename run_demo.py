@@ -1,5 +1,10 @@
 import os
 
+import sys
+from pathlib import Path
+SRC = Path(__file__).resolve().parent / "src"
+sys.path.insert(0, str(SRC))
+
 from web_safety_eval.runner import run_named_scenario
 
 if __name__ == "__main__":
