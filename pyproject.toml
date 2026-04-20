@@ -2,7 +2,20 @@
 name = "web-safety-eval"
 version = "0.1.0"
 description = "MVP harness for evaluating OpenClaw agent web-safety behaviors"
+readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+  { name = "Nathan Sawyer" },
+]
+keywords = ["openclaw", "agent-evals", "web-safety", "prompt-injection", "security"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Security",
+  "Topic :: Software Development :: Testing",
+]
 dependencies = [
   "anthropic>=0.40.0",
 ]
@@ -23,3 +36,8 @@ where = ["src"]
 
 [project.scripts]
 web-safety-eval = "web_safety_eval.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/NathanSawyer1/WebSafetyEval"
+Repository = "https://github.com/NathanSawyer1/WebSafetyEval"
+Issues = "https://github.com/NathanSawyer1/WebSafetyEval/issues"
