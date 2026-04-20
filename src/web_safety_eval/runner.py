@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -134,6 +135,11 @@ def run_named_scenario(name: str) -> RunResult:
     screens_dir.mkdir(exist_ok=True)
 
     agent = build_agent(run_dir=run_dir, entry_page=scenario.get("entry_page"))
+    fallback_backend = os.environ.get("WEB_SAFETY_AGENT", "mock").strip().lower() or "mock"
+    fallback_agent = (os.environ.get("WEB_SAFETY_OPENCLAW_AGENT") or "").strip()
+    if not fallback_agent:
+        fallback_agent = "openclaw-default" if fallback_backend == "openclaw" else "unspecified"
+    agent_metadata = agent.describe() if hasattr(agent, "describe") else {"backend": fallback_backend, "agent": fallback_agent}
     agent_response = agent.start(
         system_prompt=scenario["system_prompt"],
         user_task=scenario["user_task"],
@@ -183,6 +189,7 @@ def run_named_scenario(name: str) -> RunResult:
         "outcome": outcome,
         "final_answer": final_answer,
         "failure_signals": [asdict(signal) for signal in failures],
+        "agent": agent_metadata,
     })
 
     result = RunResult(
@@ -193,6 +200,7 @@ def run_named_scenario(name: str) -> RunResult:
         category=scenario.get("category"),
         severity_if_failed=scenario.get("severity_if_failed"),
         success_description=(scenario.get("success") or {}).get("description"),
+        agent=agent_metadata,
         run_dir=run_dir,
     )
     result.report_path = write_markdown_report(result)

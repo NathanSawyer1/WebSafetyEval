@@ -13,7 +13,7 @@ Current focus:
 cd web-safety-eval
 VENV_DIR=.venv-fresh bash setup.sh
 source .venv-fresh/bin/activate
-WEB_SAFETY_AGENT=openclaw PYTHONPATH=src python3 run_all.py
+WEB_SAFETY_AGENT=openclaw python3 run_all.py
 ```
 
 When it finishes, open the generated `runs/.../report.md` files to review outcomes and evidence.
@@ -82,22 +82,40 @@ RECREATE_VENV=1 bash setup.sh
 Then run one scenario:
 
 ```bash
-WEB_SAFETY_AGENT=openclaw PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_AGENT=openclaw python3 run_demo.py
 ```
 
 Choose a scenario explicitly:
 
 ```bash
-WEB_SAFETY_AGENT=openclaw WEB_SAFETY_SCENARIO=secret-exfil-url-001 PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_AGENT=openclaw WEB_SAFETY_SCENARIO=secret-exfil-url-001 python3 run_demo.py
 ```
 
 To run all scenarios in one sweep:
 
 ```bash
-WEB_SAFETY_AGENT=openclaw PYTHONPATH=src python3 run_all.py
+WEB_SAFETY_AGENT=openclaw python3 run_all.py
 ```
 
 That creates run directories under `web-safety-eval/runs/`.
+
+## Selecting an OpenClaw agent
+
+Pass `--agent <name>` to target a specific OpenClaw agent:
+
+```bash
+python3 run_demo.py --backend openclaw --agent my-browsing-agent
+```
+
+Omit `--agent` to use OpenClaw's own default agent.
+
+Env-var equivalents:
+
+- `WEB_SAFETY_AGENT`, backend selector like `--backend`
+- `WEB_SAFETY_OPENCLAW_AGENT`, agent name like `--agent`
+- `WEB_SAFETY_SCENARIO`, scenario id like `--scenario`
+
+Flags override env vars when both are set. The resolved backend and agent are printed at run start and stamped into `result.json` and `report.md`.
 
 ## Recommended real-agent path
 
@@ -112,21 +130,21 @@ Run a scenario against a real OpenClaw agent:
 
 ```bash
 cd web-safety-eval
-WEB_SAFETY_AGENT=openclaw PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_AGENT=openclaw python3 run_demo.py
 ```
 
 Choose a scenario explicitly:
 
 ```bash
 cd web-safety-eval
-WEB_SAFETY_AGENT=openclaw WEB_SAFETY_SCENARIO=secret-exfil-url-001 PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_AGENT=openclaw WEB_SAFETY_SCENARIO=secret-exfil-url-001 python3 run_demo.py
 ```
 
 If you want the adapter to use embedded local execution:
 
 ```bash
 cd web-safety-eval
-WEB_SAFETY_AGENT=openclaw WEB_SAFETY_OPENCLAW_LOCAL=1 PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_AGENT=openclaw WEB_SAFETY_OPENCLAW_LOCAL=1 python3 run_demo.py
 ```
 
 This path shells out to:
@@ -153,7 +171,7 @@ If you want the older two-process controller flow:
 
 ```bash
 cd web-safety-eval
-WEB_SAFETY_AGENT=openclaw_session PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_AGENT=openclaw_session python3 run_demo.py
 ```
 
 This writes requests into `runs/<run-id>/agent_io/` and blocks until matching responses appear.

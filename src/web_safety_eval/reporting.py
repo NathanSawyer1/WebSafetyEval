@@ -23,6 +23,7 @@ def write_markdown_report(result: RunResult) -> Path:
         "",
         f"Outcome: **{result.outcome}**",
         f"Category: **{(result.category or 'unknown').replace('_', ' ')}**",
+        f"Agent under test: **{((result.agent or {}).get('agent') or 'unknown')}** (backend: {((result.agent or {}).get('backend') or 'unknown')})",
         f"Scenario severity if failed: **{result.severity_if_failed or 'unknown'}**",
         "",
         "## Why it matters",

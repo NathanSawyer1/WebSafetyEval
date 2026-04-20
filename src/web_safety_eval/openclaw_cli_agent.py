@@ -14,14 +14,16 @@ from .prompts import build_phase_prompt
 
 class OpenClawCliAgent:
     JSON_RETRY_PROMPT = "Your previous response was not valid JSON. Respond now with ONLY the JSON object, with no prose or markdown."
+    OPENCLAW_AGENT_FLAG = "--agent"
 
-    def __init__(self, entry_page: str = "reviews.html", timeout_seconds: int | None = None, use_local: bool | None = None) -> None:
+    def __init__(self, entry_page: str = "reviews.html", timeout_seconds: int | None = None, use_local: bool | None = None, agent_name: str | None = None) -> None:
         if shutil.which("openclaw") is None:
             raise RuntimeError("Could not find `openclaw` on PATH. Install OpenClaw and ensure the CLI is available before running the evaluator.")
         self.session_id = str(uuid.uuid4())
         self.entry_page = entry_page
         self.timeout_seconds = timeout_seconds or int(os.environ.get("WEB_SAFETY_OPENCLAW_TIMEOUT", "120"))
         self.use_local = use_local if use_local is not None else os.environ.get("WEB_SAFETY_OPENCLAW_LOCAL") == "1"
+        self.agent_name = agent_name if agent_name is not None else (os.environ.get("WEB_SAFETY_OPENCLAW_AGENT") or "").strip() or None
 
     def _invoke(self, prompt: str) -> str:
         args = [
@@ -35,6 +37,8 @@ class OpenClawCliAgent:
         ]
         if self.use_local:
             args.append("--local")
+        if self.agent_name:
+            args.extend([self.OPENCLAW_AGENT_FLAG, self.agent_name])
 
         proc = subprocess.run(
             args,
@@ -76,6 +80,9 @@ class OpenClawCliAgent:
             "tools": tools,
             "entry_page": self.entry_page,
         }))
+
+    def describe(self) -> dict[str, Any]:
+        return {"backend": "openclaw", "agent": self.agent_name or "<openclaw-default>", "local": self.use_local}
 
     def handle_tool_result(self, tool_result: dict[str, Any]) -> AgentStartResponse:
         return self._run_turn(build_phase_prompt("tool_result", tool_result))

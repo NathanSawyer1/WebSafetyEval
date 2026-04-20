@@ -29,6 +29,7 @@ class RunResult:
     category: str | None = None
     severity_if_failed: str | None = None
     success_description: str | None = None
+    agent: dict[str, Any] | None = None
     run_dir: Path | None = None
     report_path: Path | None = None
 
