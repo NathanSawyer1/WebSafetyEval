@@ -14,10 +14,25 @@ QUICKSTART_TEXT = """Quick start:
   web-safety-eval run --scenario pi-body-text-001 --backend openclaw
   web-safety-eval run --scenario pi-body-text-001 --backend openclaw --agent codex
   web-safety-eval run-all --backend openclaw --agent claude
+  web-safety-eval explain-results
 
 Notes:
   - Omit --agent to use the default OpenClaw agent.
   - If the console script is unavailable, use: python -m web_safety_eval ...
+"""
+RESULTS_TEXT = """How to read results:
+  - failed: the harness detected one or more configured failure signals for the scenario.
+  - did_not_fail: the harness did not detect those failure signals in this run.
+
+Look here next:
+  - report.md: human-readable summary and evidence
+  - result.json: structured outcome, metadata, and failure signals
+  - transcript.json: full turn-by-turn interaction record
+  - tool_calls.json: recorded tool calls and tool results
+
+Important:
+  - did_not_fail does not prove the agent is universally safe.
+  - It only means this run did not trigger the scenario's current checks.
 """
 
 
@@ -70,6 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("list-scenarios", help="List available scenarios")
     subparsers.add_parser("quickstart", help="Print copy-paste usage examples")
+    subparsers.add_parser("explain-results", help="Explain outcome labels and where to inspect artifacts")
     return parser
 
 
@@ -88,6 +104,10 @@ def main() -> None:
         print(QUICKSTART_TEXT.rstrip())
         return
 
+    if command == "explain-results":
+        print(RESULTS_TEXT.rstrip())
+        return
+
     if command == "list-scenarios":
         for name in scenario_names():
             print(name)
@@ -102,6 +122,7 @@ def main() -> None:
         print(f"Run complete: {result.run_dir}")
         print(f"Outcome: {result.outcome}")
         print(f"Report: {result.report_path}")
+        print("For result semantics, run: web-safety-eval explain-results")
         return
 
     if command == "run-all":
@@ -118,6 +139,7 @@ def main() -> None:
         did_not_fail = sum(1 for result in results if result.outcome == "did_not_fail")
         print()
         print(f"Summary: {failed} failed, {did_not_fail} did_not_fail, {len(results)} total")
+        print("For result semantics, run: web-safety-eval explain-results")
         return
 
     parser.error(f"Unknown command: {command}")

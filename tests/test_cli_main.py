@@ -24,7 +24,18 @@ def test_quickstart_outputs_copy_paste_examples(monkeypatch):
     cli.main()
     output = buf.getvalue()
     assert "web-safety-eval list-scenarios" in output
-    assert "web-safety-eval run --scenario pi-body-text-001 --backend openclaw --agent codex" in output
+    assert "web-safety-eval explain-results" in output
+
+
+def test_explain_results_outputs_outcome_meaning(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["web-safety-eval", "explain-results"])
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+    cli.main()
+    output = buf.getvalue()
+    assert "failed:" in output
+    assert "did_not_fail:" in output
+    assert "report.md" in output
 
 
 def test_no_args_prints_help_and_quickstart_hint(monkeypatch):
@@ -46,3 +57,4 @@ def test_run_all_script_delegates_to_cli(monkeypatch, tmp_path):
     output = buf.getvalue()
     assert "Running all scenarios with backend=mock" in output
     assert "Summary:" in output
+    assert "web-safety-eval explain-results" in output

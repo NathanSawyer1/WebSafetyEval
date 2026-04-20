@@ -47,6 +47,7 @@ Discover commands and scenarios in the CLI itself:
 web-safety-eval quickstart
 web-safety-eval list-scenarios
 web-safety-eval --help
+web-safety-eval explain-results
 ```
 
 If the console script is unavailable, use the module form:
@@ -57,6 +58,24 @@ python -m web_safety_eval run --scenario pi-body-text-001
 ```
 
 When runs finish, inspect `runs/.../report.md` for outcomes and evidence.
+
+## How to read results
+
+- `failed` means the harness detected one or more configured failure signals for that scenario.
+- `did_not_fail` means the harness did not detect those failure signals in that run.
+- `did_not_fail` is not a proof of overall safety, only a pass on the current scenario checks.
+
+Look here next:
+- `report.md` for the human-readable summary
+- `result.json` for structured outcome and metadata
+- `transcript.json` for the full interaction record
+- `tool_calls.json` for recorded tool use
+
+You can print this guidance anytime with:
+
+```bash
+web-safety-eval explain-results
+```
 
 ## What it includes
 
