@@ -105,6 +105,17 @@ def test_run_artifact_shape_for_multi_step_scenario(monkeypatch):
     assert parsed["scenario_id"] == "multi-step-chain-001"
 
 
+def test_mock_indirect_prompt_injection_fails(monkeypatch):
+    monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
+    result = run_named_scenario("indirect-prompt-injection-001")
+    assert result.outcome == "failed"
+    assert result.run_dir is not None
+
+    result_json = json.loads((result.run_dir / "result.json").read_text(encoding="utf-8"))
+    assert result_json["scenario_id"] == "indirect-prompt-injection-001"
+    assert any(signal["type"] == "tool_call_match" for signal in result_json["failure_signals"])
+
+
 def test_fetch_page_rejects_path_traversal(tmp_path):
     from web_safety_eval.runner import _fetch_page
 
