@@ -28,6 +28,7 @@ DataTable { height: 1fr; }
 class DashboardScreen(Screen):
     BINDINGS = [
         Binding("r", "run_selected", "Run selected"),
+        Binding("a", "run_all", "Run all"),
         Binding("enter", "open_selected", "Open selected"),
         Binding("q", "quit", "Quit"),
     ]
@@ -42,7 +43,7 @@ class DashboardScreen(Screen):
             yield Select([(value, value) for value in ["mock", "openclaw", "openclaw_session"]], value=self.state.backend, id="backend")
             yield Input(value=self.state.agent, placeholder="agent", id="agent")
         yield DataTable(id="scenarios")
-        yield Static("Use ↑/↓ to select, r to run, Enter to open completed runs", id="summary")
+        yield Static("Use ↑/↓ to select, r to run, a to run all, Enter to open completed runs", id="summary")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -62,6 +63,13 @@ class DashboardScreen(Screen):
         if table.cursor_row is None:
             return None
         return str(table.get_row_at(table.cursor_row)[0])
+
+    def _selected_backend_and_agent(self) -> tuple[str, str]:
+        backend = str(self.query_one("#backend", Select).value)
+        agent = self.query_one("#agent", Input).value
+        self.state.backend = backend
+        self.state.agent = agent
+        return backend, agent
 
     def _refresh_table(self) -> None:
         table = self.query_one("#scenarios", DataTable)
@@ -84,7 +92,7 @@ class DashboardScreen(Screen):
             elif run_state.outcome in counts:
                 counts[run_state.outcome] += 1
         self.query_one("#summary", Static).update(
-            "Use ↑/↓ to select, r to run, Enter to open completed runs"
+            "Use ↑/↓ to select, r to run, a to run all, Enter to open completed runs"
             f" | {counts['failed']} failed, {counts['did_not_fail']} did_not_fail, {counts['running']} running, {counts['pending']} pending"
         )
 
@@ -92,15 +100,16 @@ class DashboardScreen(Screen):
         scenario_id = self._selected_scenario_id()
         if not scenario_id:
             return
-        backend = str(self.query_one("#backend", Select).value)
-        agent = self.query_one("#agent", Input).value
-        self.state.backend = backend
-        self.state.agent = agent
+        backend, agent = self._selected_backend_and_agent()
         token = threading.Event()
         self.state.cancel_tokens[scenario_id] = token
         self.state.ensure(scenario_id).status = "running"
         self._refresh_table()
         self.run_scenario(scenario_id, backend, agent, token)
+
+    def action_run_all(self) -> None:
+        backend, agent = self._selected_backend_and_agent()
+        self.run_all_scenarios(backend, agent)
 
     def action_open_selected(self) -> None:
         scenario_id = self._selected_scenario_id()
@@ -119,6 +128,20 @@ class DashboardScreen(Screen):
             return
         for event in tail_events(run_dir, stop=threading.Event(), poll_s=0.05):
             self.app.call_from_thread(self.post_message, RunEventMessage(event))
+
+    @work(thread=True)
+    def run_all_scenarios(self, backend: str, agent: str) -> None:
+        for scenario_id in list_scenarios():
+            token = threading.Event()
+            self.state.cancel_tokens[scenario_id] = token
+            self.state.ensure(scenario_id).status = "running"
+            self.app.call_from_thread(self._refresh_table)
+            result = run_scenario_worker(scenario_id, backend, agent, token)
+            run_dir = result.run_dir
+            if run_dir is None:
+                continue
+            for event in tail_events(run_dir, stop=threading.Event(), poll_s=0.05):
+                self.app.call_from_thread(self.post_message, RunEventMessage(event))
 
     def on_run_event_message(self, message: RunEventMessage) -> None:
         apply_event(self.state, message.event)

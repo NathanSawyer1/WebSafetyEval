@@ -4,7 +4,7 @@ import pytest
 
 pytest.importorskip("textual")
 
-from web_safety_eval.tui.app import WebSafetyEvalApp
+from web_safety_eval.tui.app import DashboardScreen, WebSafetyEvalApp
 from web_safety_eval.tui.state import RunState
 
 
@@ -36,3 +36,20 @@ async def test_open_selected_pushes_result_detail(tmp_path):
         await pilot.press("enter")
         report = app.screen.query_one("#report")
         assert "Report" in str(report.renderable)
+
+
+@pytest.mark.asyncio
+async def test_run_all_marks_rows_running(monkeypatch):
+    app = WebSafetyEvalApp(backend="mock", agent="")
+
+    def fake_run_all(self, backend: str, agent: str):
+        for scenario_id in ["fake-system-instruction-001", "indirect-prompt-injection-001"]:
+            self.state.ensure(scenario_id).status = "running"
+        self._refresh_table()
+
+    monkeypatch.setattr(DashboardScreen, "run_all_scenarios", fake_run_all)
+
+    async with app.run_test() as pilot:
+        await pilot.press("a")
+        table = app.screen.query_one("#scenarios")
+        assert table.get_cell_at((0, 3)) == "running"
