@@ -109,35 +109,17 @@ web-safety-eval run-all --backend openclaw
 Notes:
 - omit `--agent` to use OpenClaw's default agent
 - flags override env vars when both are set
-- wrapper scripts `run_demo.py` and `run_all.py` still work as compatibility paths
+- the resolved backend and agent are printed at run start and stamped into `result.json` and `report.md`
+
+Recommended real-agent path:
+- install OpenClaw and make sure `openclaw --help` works in your shell
+- use `web-safety-eval run --backend openclaw ...`
+- use wrapper scripts only as compatibility paths
 
 Env-var equivalents:
 - `WEB_SAFETY_AGENT`, backend selector like `--backend`
 - `WEB_SAFETY_OPENCLAW_AGENT`, agent name like `--agent`
 - `WEB_SAFETY_SCENARIO`, scenario id like `--scenario`
-
-The resolved backend and agent are printed at run start and stamped into `result.json` and `report.md`.
-
-## Recommended real-agent path
-
-Use the OpenClaw CLI adapter.
-
-Prerequisites:
-- `openclaw` is installed and on your `PATH`
-- `openclaw --help` works in your shell
-- you have run `bash setup.sh` and activated `.venv`
-
-Optional local execution toggle:
-
-```bash
-WEB_SAFETY_AGENT=openclaw WEB_SAFETY_OPENCLAW_LOCAL=1 python3 run_demo.py
-```
-
-This adapter uses:
-- `openclaw agent`
-- one subprocess call per turn
-- a stable `--session-id` per evaluator run
-- `--json` parsing for agent responses
 
 Useful environment variables:
 - `WEB_SAFETY_OPENCLAW_TIMEOUT`, per-turn timeout for the CLI adapter (default `120` seconds)
