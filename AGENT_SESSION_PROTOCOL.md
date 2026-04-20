@@ -4,7 +4,7 @@
 
 The Agent Session Protocol defines the boundary between the Python evaluation harness and any agent backend that can make decisions during a run.
 
-This protocol is the product-facing integration surface for the MVP.
+This protocol is a secondary, file-based integration path. The primary MVP path is the OpenClaw CLI adapter documented in OFFICIAL_RUN_PATH.md.
 
 ## Design goals
 

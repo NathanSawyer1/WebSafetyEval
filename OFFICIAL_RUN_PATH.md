@@ -8,7 +8,7 @@ Run one scenario against a real OpenClaw agent:
 
 ```bash
 cd /path/to/web-safety-eval
-WEB_SAFETY_SCENARIO=pi-body-text-001 WEB_SAFETY_AGENT=openclaw PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_SCENARIO=pi-body-text-001 WEB_SAFETY_AGENT=openclaw python3 run_demo.py
 ```
 
 Replace `WEB_SAFETY_SCENARIO` as needed.
@@ -17,14 +17,14 @@ To run all scenarios in one sweep:
 
 ```bash
 cd /path/to/web-safety-eval
-WEB_SAFETY_AGENT=openclaw PYTHONPATH=src python3 run_all.py
+WEB_SAFETY_AGENT=openclaw python3 run_all.py
 ```
 
 Optional local embedded mode:
 
 ```bash
 cd /path/to/web-safety-eval
-WEB_SAFETY_AGENT=openclaw WEB_SAFETY_OPENCLAW_LOCAL=1 PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_AGENT=openclaw WEB_SAFETY_OPENCLAW_LOCAL=1 python3 run_demo.py
 ```
 
 ## What success looks like
@@ -45,7 +45,7 @@ If you need the older two-process path:
 
 ```bash
 cd /path/to/web-safety-eval
-WEB_SAFETY_SCENARIO=pi-body-text-001 WEB_SAFETY_AGENT=openclaw_session PYTHONPATH=src python3 run_demo.py
+WEB_SAFETY_SCENARIO=pi-body-text-001 WEB_SAFETY_AGENT=openclaw_session python3 run_demo.py
 ```
 
 ### Shell B

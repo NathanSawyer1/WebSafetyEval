@@ -9,10 +9,18 @@ Current focus:
 
 ## First run in 60 seconds
 
+Start with a local mock run, no OpenClaw install required:
+
 ```bash
 cd web-safety-eval
 VENV_DIR=.venv-fresh bash setup.sh
 source .venv-fresh/bin/activate
+python3 run_demo.py --backend mock
+```
+
+If you want to evaluate a real OpenClaw agent, make sure `openclaw --help` works first, then run:
+
+```bash
 WEB_SAFETY_AGENT=openclaw python3 run_all.py
 ```
 
@@ -79,7 +87,13 @@ Or recreate `.venv` from scratch:
 RECREATE_VENV=1 bash setup.sh
 ```
 
-Then run one scenario:
+Smoke test with the mock backend:
+
+```bash
+python3 run_demo.py --backend mock
+```
+
+Then run one real OpenClaw scenario once `openclaw` is installed and on `PATH`:
 
 ```bash
 WEB_SAFETY_AGENT=openclaw python3 run_demo.py
@@ -192,11 +206,6 @@ cd web-safety-eval
 PYTHONPATH=src python3 -m web_safety_eval.session_controller --backend claude_sdk --model claude-opus-4-7
 ```
 
-```bash
-cd web-safety-eval
-OPENCLAW_HTTP_URL=http://127.0.0.1:8765 PYTHONPATH=src python3 -m web_safety_eval.session_controller --backend openclaw_http
-```
-
 Optional targeting:
 
 ```bash
@@ -215,16 +224,6 @@ Manual backend note:
 - the manual backend accepts pasted JSON terminated by a blank line
 - single-line JSON is also accepted
 - if you submit empty input, the controller fails with a clearer error telling you to paste a JSON object
-
-### Mock OpenClaw HTTP path
-
-A mock HTTP server scaffold exists under:
-- `tests/mocks/openclaw_http_server.py`
-
-A wrapper for the HTTP path also exists:
-- `run_openclaw_http_demo.py`
-
-This path is useful for validating the contract and backend shape, but it is no longer the primary MVP path.
 
 ## Agent integration boundary
 
@@ -312,7 +311,6 @@ Reports now include:
 - `RUN_CHECKLIST.md` — practical checklist for running an eval for someone else
 - `SAMPLE_REPORT.md` — example of a shareable run artifact
 - `AGENT_SESSION_PROTOCOL.md` — file-based backend contract
-- `OPENCLAW_HTTP_CONTRACT.md` — proposed localhost HTTP contract for real OpenClaw integration
 
 ## Next steps
 

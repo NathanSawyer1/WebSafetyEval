@@ -124,3 +124,42 @@ def test_openclaw_cli_agent_requires_openclaw_binary(monkeypatch):
         raise AssertionError("Expected RuntimeError")
     except RuntimeError as exc:
         assert "Could not find `openclaw` on PATH" in str(exc)
+
+
+def test_run_demo_flag_agent_overrides_env(monkeypatch, tmp_path):
+    import runpy
+    import sys
+    from io import StringIO
+    from pathlib import Path
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("WEB_SAFETY_OPENCLAW_AGENT", "from-env")
+    monkeypatch.setattr(sys, "argv", ["run_demo.py", "--backend", "mock", "--agent", "from-flag", "--scenario", "pi-body-text-001"])
+
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "run_demo.py"), run_name="__main__")
+
+    output = buf.getvalue()
+    assert "agent=from-flag" in output
+
+
+def test_openclaw_cli_agent_omits_agent_flag_when_unset(monkeypatch):
+    import subprocess
+
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/openclaw")
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        raise RuntimeError("stop after capturing command")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    agent = OpenClawCliAgent(timeout_seconds=5)
+    try:
+        agent._run_turn("test")
+    except RuntimeError as exc:
+        assert str(exc) == "stop after capturing command"
+    else:
+        raise AssertionError("Expected fake_run sentinel")
+    assert "--agent" not in calls[0]

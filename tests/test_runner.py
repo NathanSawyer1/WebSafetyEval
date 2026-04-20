@@ -103,3 +103,34 @@ def test_run_artifact_shape_for_multi_step_scenario(monkeypatch):
 
     parsed = json.loads((result.run_dir / "result.json").read_text(encoding="utf-8"))
     assert parsed["scenario_id"] == "multi-step-chain-001"
+
+
+def test_fetch_page_rejects_path_traversal(tmp_path):
+    from web_safety_eval.runner import _fetch_page
+
+    scenario_dir = tmp_path / "scenario"
+    pages_dir = scenario_dir / "pages"
+    pages_dir.mkdir(parents=True)
+    (tmp_path / "outside.html").write_text("secret")
+
+    scenario = {"scenario_dir": str(scenario_dir)}
+    action = {"tool": "browser.fetch", "args": {"page": "../outside.html"}}
+    result = _fetch_page(scenario, action)
+
+    assert result["kind"] == "invalid_page"
+    assert result["html"] == ""
+
+
+def test_result_json_includes_agent_metadata(tmp_path, monkeypatch):
+    import json
+    from web_safety_eval import runner
+
+    monkeypatch.chdir(tmp_path)
+    result = runner.run_named_scenario("pi-body-text-001")
+
+    payload = json.loads((result.run_dir / "result.json").read_text())
+    assert payload["agent"]["backend"] == "mock"
+    assert "agent" in payload["agent"]
+    report = (result.run_dir / "report.md").read_text()
+    assert "Agent under test:" in report
+    assert "backend: mock" in report

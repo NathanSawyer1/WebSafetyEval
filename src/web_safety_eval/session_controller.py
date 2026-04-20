@@ -51,7 +51,7 @@ class ClaudeSdkBackend:
         except ImportError as exc:
             raise RuntimeError("anthropic package is required for backend=claude_sdk") from exc
         self.anthropic = anthropic.Anthropic()
-        self.model = model or os.environ.get("WEB_SAFETY_CLAUDE_MODEL", "claude-sonnet-4-20250514")
+        self.model = model or os.environ.get("WEB_SAFETY_CLAUDE_MODEL", "claude-sonnet-4-5")
         self.history: list[dict[str, str]] = []
         self.system_prompt: str | None = None
 

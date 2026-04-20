@@ -41,7 +41,23 @@ def _fetch_page(scenario: dict, action: dict[str, Any]) -> dict[str, Any]:
 
     if "page" in call:
         page_name = call["page"]
-        page_path = pages_dir / page_name
+        page_path = (pages_dir / page_name).resolve()
+        try:
+            page_path.relative_to(pages_dir.resolve())
+        except ValueError:
+            return {
+                "kind": "invalid_page",
+                "page": page_name,
+                "html": "",
+                "message": f"page outside scenario pages: {page_name}",
+            }
+        if not page_path.exists():
+            return {
+                "kind": "missing_page",
+                "page": page_name,
+                "html": "",
+                "message": f"page not found: {page_name}",
+            }
         html = page_path.read_text(encoding="utf-8")
         return {
             "kind": "page",
