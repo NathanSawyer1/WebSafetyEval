@@ -163,3 +163,30 @@ def test_openclaw_cli_agent_omits_agent_flag_when_unset(monkeypatch):
     else:
         raise AssertionError("Expected fake_run sentinel")
     assert "--agent" not in calls[0]
+
+
+def test_openclaw_cli_agent_uses_configured_agent_flag(monkeypatch):
+    import subprocess
+
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/openclaw")
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        raise RuntimeError("stop after capturing command")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    agent = OpenClawCliAgent(timeout_seconds=5, agent_name="codex")
+    try:
+        agent._run_turn("test")
+    except RuntimeError as exc:
+        assert str(exc) == "stop after capturing command"
+    else:
+        raise AssertionError("Expected fake_run sentinel")
+
+    cmd = calls[0]
+    assert "--agent" in cmd
+    idx = cmd.index("--agent")
+    assert cmd[idx + 1] == "codex"
+    assert "--json" in cmd
+    assert "--session-id" in cmd
