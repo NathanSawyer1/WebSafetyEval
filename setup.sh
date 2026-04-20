@@ -39,6 +39,7 @@ source "${VENV_DIR}/bin/activate"
 
 echo "==> Upgrading pip"
 python -m pip install --upgrade pip
+python -m pip install -e .[dev]
 
 echo "==> Installing project and dev dependencies"
 pip install -e '.[dev]'

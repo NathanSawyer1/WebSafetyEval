@@ -20,3 +20,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.scripts]
+web-safety-eval = "web_safety_eval.__main__:main"
