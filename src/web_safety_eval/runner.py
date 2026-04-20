@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,6 +18,10 @@ from .screenshots import capture_html_screenshot
 ROOT = Path(__file__).resolve().parents[2]
 RUNS_DIR = ROOT / "runs"
 
+# events.jsonl is an NDJSON stream with one JSON object per line.
+# v1 event kinds: run_started, agent_turn, step_started, tool_called,
+# screenshot_captured, run_completed, run_cancelled.
+
 
 def _timestamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -24,6 +30,12 @@ def _timestamp() -> str:
 def _write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _emit(fh, kind: str, **fields: Any) -> None:
+    line = json.dumps({"ts": time.time(), "kind": kind, **fields}, separators=(",", ":"))
+    fh.write(line + "\n")
+    fh.flush()
 
 
 def _fetch_page(scenario: dict, action: dict[str, Any]) -> dict[str, Any]:
@@ -138,7 +150,7 @@ def _evaluate(scenario: dict, tool_calls: list[ToolCall], final_answer: str) -> 
     return failures
 
 
-def run_named_scenario(name: str) -> RunResult:
+def run_named_scenario(name: str, *, cancel_token: threading.Event | None = None) -> RunResult:
     scenario = load_scenario(name)
     run_dir = RUNS_DIR / f"{name}-{_timestamp()}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -156,47 +168,105 @@ def run_named_scenario(name: str) -> RunResult:
     if not fallback_agent:
         fallback_agent = "openclaw-default" if fallback_backend == "openclaw" else "unspecified"
     agent_metadata = agent.describe() if hasattr(agent, "describe") else {"backend": fallback_backend, "agent": fallback_agent}
-    agent_response = agent.start(
-        system_prompt=scenario["system_prompt"],
-        user_task=scenario["user_task"],
-        tools=scenario.get("tools", []),
-    )
-    transcript.append({"role": "agent", "payload": asdict(agent_response)})
 
     final_answer = ""
+    failures: list[FailureSignal] = []
+    outcome = "did_not_fail"
     max_steps = int(scenario.get("max_steps", 5))
-    for step in range(1, max_steps + 1):
-        action = agent_response.action
-        if not action:
-            final_answer = agent_response.final_answer or ""
-            break
+    events_path = run_dir / "events.jsonl"
 
-        result = _fetch_page(scenario, action)
-        tool_call = ToolCall(step=step, tool=action["tool"], args=action["args"], result=result)
-        tool_calls.append(tool_call)
-        transcript.append({"role": "tool", "payload": asdict(tool_call)})
+    with events_path.open("w", encoding="utf-8") as events_fh:
+        _emit(
+            events_fh,
+            "run_started",
+            scenario_id=scenario["id"],
+            backend=agent_metadata.get("backend", fallback_backend),
+            agent=agent_metadata.get("agent", fallback_agent),
+            max_steps=max_steps,
+        )
 
-        if result["kind"] == "page":
-            (served_pages_dir / result["page"]).write_text(result["html"], encoding="utf-8")
-            screenshot_path = run_dir / result["screenshot"]
-            captured = capture_html_screenshot(result["html"], screenshot_path, title=result.get("page"))
-            transcript.append({
-                "role": "artifact",
-                "payload": {
-                    "screenshot": result["screenshot"],
-                    "captured": captured,
-                },
-            })
-            agent_response = agent.handle_tool_result(result)
-        else:
-            agent_response = agent.handle_sink_result(result)
+        agent_response = agent.start(
+            system_prompt=scenario["system_prompt"],
+            user_task=scenario["user_task"],
+            tools=scenario.get("tools", []),
+        )
         transcript.append({"role": "agent", "payload": asdict(agent_response)})
+        _emit(
+            events_fh,
+            "agent_turn",
+            scenario_id=scenario["id"],
+            step=0,
+            message=agent_response.message,
+            has_action=bool(agent_response.action),
+            final_answer=bool(agent_response.final_answer),
+        )
 
-    if not final_answer:
-        final_answer = agent_response.final_answer or ""
+        for step in range(1, max_steps + 1):
+            if cancel_token is not None and cancel_token.is_set():
+                outcome = "cancelled"
+                _emit(events_fh, "run_cancelled", scenario_id=scenario["id"], step=step)
+                break
 
-    failures = _evaluate(scenario, tool_calls, final_answer)
-    outcome = "failed" if failures else "did_not_fail"
+            _emit(events_fh, "step_started", scenario_id=scenario["id"], step=step)
+            action = agent_response.action
+            if not action:
+                final_answer = agent_response.final_answer or ""
+                break
+
+            result = _fetch_page(scenario, action)
+            tool_call = ToolCall(step=step, tool=action["tool"], args=action["args"], result=result)
+            tool_calls.append(tool_call)
+            transcript.append({"role": "tool", "payload": asdict(tool_call)})
+            _emit(
+                events_fh,
+                "tool_called",
+                scenario_id=scenario["id"],
+                step=step,
+                tool=tool_call.tool,
+                args=tool_call.args,
+                result_kind=result.get("kind"),
+            )
+
+            if result["kind"] == "page":
+                (served_pages_dir / result["page"]).write_text(result["html"], encoding="utf-8")
+                screenshot_path = run_dir / result["screenshot"]
+                captured = capture_html_screenshot(result["html"], screenshot_path, title=result.get("page"))
+                transcript.append({
+                    "role": "artifact",
+                    "payload": {
+                        "screenshot": result["screenshot"],
+                        "captured": captured,
+                    },
+                })
+                _emit(events_fh, "screenshot_captured", scenario_id=scenario["id"], step=step, path=result["screenshot"], ok=captured)
+                agent_response = agent.handle_tool_result(result)
+            else:
+                agent_response = agent.handle_sink_result(result)
+            transcript.append({"role": "agent", "payload": asdict(agent_response)})
+            _emit(
+                events_fh,
+                "agent_turn",
+                scenario_id=scenario["id"],
+                step=step,
+                message=agent_response.message,
+                has_action=bool(agent_response.action),
+                final_answer=bool(agent_response.final_answer),
+            )
+
+        if not final_answer:
+            final_answer = agent_response.final_answer or ""
+
+        if outcome != "cancelled":
+            failures = _evaluate(scenario, tool_calls, final_answer)
+            outcome = "failed" if failures else "did_not_fail"
+            _emit(
+                events_fh,
+                "run_completed",
+                scenario_id=scenario["id"],
+                outcome=outcome,
+                failure_count=len(failures),
+                final_answer_preview=final_answer[:240],
+            )
 
     _write_json(run_dir / "transcript.json", transcript)
     _write_json(run_dir / "tool_calls.json", [asdict(call) for call in tool_calls])

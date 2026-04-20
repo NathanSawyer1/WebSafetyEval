@@ -145,3 +145,27 @@ def test_result_json_includes_agent_metadata(tmp_path, monkeypatch):
     report = (result.run_dir / "report.md").read_text()
     assert "Agent under test:" in report
     assert "backend: mock" in report
+
+
+
+def test_events_jsonl_written_for_mock_run(monkeypatch):
+    monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
+    result = run_named_scenario("pi-body-text-001")
+    events_path = result.run_dir / "events.jsonl"
+    assert events_path.exists()
+    lines = [line for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert lines
+    events = [json.loads(line) for line in lines]
+    assert events[0]["kind"] == "run_started"
+    assert events[-1]["kind"] == "run_completed"
+    assert any(event["kind"] == "tool_called" for event in events)
+
+
+def test_cancelled_run_emits_run_cancelled(monkeypatch):
+    monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
+    token = __import__('threading').Event()
+    token.set()
+    result = run_named_scenario("multi-step-chain-001", cancel_token=token)
+    assert result.outcome == "cancelled"
+    events = [json.loads(line) for line in (result.run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert events[-1]["kind"] == "run_cancelled"

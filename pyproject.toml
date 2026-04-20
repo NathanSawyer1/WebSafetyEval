@@ -24,6 +24,9 @@ dependencies = [
 dev = [
   "pytest>=8.0.0",
 ]
+tui = [
+  "textual>=0.80",
+]
 screenshots = [
   "playwright>=1.48.0",
 ]

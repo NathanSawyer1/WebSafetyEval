@@ -83,6 +83,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_all_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
     run_all_parser.add_argument("--agent", default=os.environ.get("WEB_SAFETY_OPENCLAW_AGENT", ""))
 
+    tui_parser = subparsers.add_parser("tui", help="Launch the terminal UI")
+    tui_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
+    tui_parser.add_argument("--agent", default=os.environ.get("WEB_SAFETY_OPENCLAW_AGENT", ""))
+
     subparsers.add_parser("list-scenarios", help="List available scenarios")
     subparsers.add_parser("quickstart", help="Print copy-paste usage examples")
     subparsers.add_parser("explain-results", help="Explain outcome labels and where to inspect artifacts")
@@ -98,6 +102,15 @@ def main() -> None:
         parser.print_help()
         print()
         print("Try: web-safety-eval quickstart")
+        return
+
+    if command == "tui":
+        try:
+            from .tui import launch
+        except ImportError as e:
+            print(f"Textual is required for `tui`. Install with: pip install 'web-safety-eval[tui]'\n({e})")
+            raise SystemExit(2)
+        launch(backend=args.backend, agent=args.agent)
         return
 
     if command == "quickstart":
