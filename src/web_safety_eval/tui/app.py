@@ -29,6 +29,7 @@ class DashboardScreen(Screen):
     BINDINGS = [
         Binding("r", "run_selected", "Run selected"),
         Binding("a", "run_all", "Run all"),
+        Binding("c", "cancel_selected", "Cancel selected"),
         Binding("enter", "open_selected", "Open selected"),
         Binding("q", "quit", "Quit"),
     ]
@@ -43,7 +44,7 @@ class DashboardScreen(Screen):
             yield Select([(value, value) for value in ["mock", "openclaw", "openclaw_session"]], value=self.state.backend, id="backend")
             yield Input(value=self.state.agent, placeholder="agent", id="agent")
         yield DataTable(id="scenarios")
-        yield Static("Use ↑/↓ to select, r to run, a to run all, Enter to open completed runs", id="summary")
+        yield Static("Use ↑/↓ to select, r to run, a to run all, c to cancel, Enter to open completed runs", id="summary")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -81,19 +82,21 @@ class DashboardScreen(Screen):
             status = run_state.status
             if run_state.status == "running" and run_state.last_tool:
                 status = f"running step {run_state.current_step} {run_state.last_tool}"
+            elif run_state.status == "cancelling":
+                status = "cancelling, waiting for current turn"
             table.update_cell_at((row_index, 3), status)
             table.update_cell_at((row_index, 4), run_state.outcome or "")
         counts = {"failed": 0, "did_not_fail": 0, "running": 0, "pending": 0, "cancelled": 0}
         for run_state in self.state.runs.values():
-            if run_state.status == "running":
+            if run_state.status in {"running", "cancelling"}:
                 counts["running"] += 1
             elif run_state.status == "pending":
                 counts["pending"] += 1
             elif run_state.outcome in counts:
                 counts[run_state.outcome] += 1
         self.query_one("#summary", Static).update(
-            "Use ↑/↓ to select, r to run, a to run all, Enter to open completed runs"
-            f" | {counts['failed']} failed, {counts['did_not_fail']} did_not_fail, {counts['running']} running, {counts['pending']} pending"
+            "Use ↑/↓ to select, r to run, a to run all, c to cancel, Enter to open completed runs"
+            f" | {counts['failed']} failed, {counts['did_not_fail']} did_not_fail, {counts['running']} active, {counts['pending']} pending"
         )
 
     def action_run_selected(self) -> None:
@@ -110,6 +113,18 @@ class DashboardScreen(Screen):
     def action_run_all(self) -> None:
         backend, agent = self._selected_backend_and_agent()
         self.run_all_scenarios(backend, agent)
+
+    def action_cancel_selected(self) -> None:
+        scenario_id = self._selected_scenario_id()
+        if not scenario_id:
+            return
+        token = self.state.cancel_tokens.get(scenario_id)
+        run_state = self.state.runs.get(scenario_id)
+        if token is None or run_state is None:
+            return
+        token.set()
+        run_state.status = "cancelling"
+        self._refresh_table()
 
     def action_open_selected(self) -> None:
         scenario_id = self._selected_scenario_id()

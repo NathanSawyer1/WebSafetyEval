@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 pytest.importorskip("textual")
@@ -53,3 +55,19 @@ async def test_run_all_marks_rows_running(monkeypatch):
         await pilot.press("a")
         table = app.screen.query_one("#scenarios")
         assert table.get_cell_at((0, 3)) == "running"
+
+
+@pytest.mark.asyncio
+async def test_cancel_selected_marks_row_cancelling():
+    app = WebSafetyEvalApp(backend="mock", agent="")
+    app.state.runs["fake-system-instruction-001"] = RunState(
+        scenario_id="fake-system-instruction-001",
+        status="running",
+    )
+    app.state.cancel_tokens["fake-system-instruction-001"] = threading.Event()
+
+    async with app.run_test() as pilot:
+        await pilot.press("c")
+        table = app.screen.query_one("#scenarios")
+        assert table.get_cell_at((0, 3)) == "cancelling, waiting for current turn"
+        assert app.state.cancel_tokens["fake-system-instruction-001"].is_set()
