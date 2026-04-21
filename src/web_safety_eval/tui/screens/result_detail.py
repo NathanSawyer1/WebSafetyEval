@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -25,11 +24,9 @@ class ResultDetailScreen(Screen):
             with TabPane("Report", id="report-tab"):
                 yield Markdown(self.artifacts["report"] or "No report.md found", id="report")
             with TabPane("Tool calls", id="tool-calls-tab"):
-                pretty = json.dumps(self.artifacts["tool_calls"], indent=2)
-                yield Static(pretty or "[]", id="tool-calls")
+                yield Static(self.artifacts["tool_calls_text"], id="tool-calls")
             with TabPane("Transcript", id="transcript-tab"):
-                pretty = json.dumps(self.artifacts["transcript"], indent=2)
-                yield Static(pretty or "[]", id="transcript")
+                yield Static(self.artifacts["transcript_text"], id="transcript")
             with TabPane("Artifacts", id="artifacts-tab"):
                 yield Static(str(self.artifacts["run_dir"]), id="artifacts")
         yield Footer()

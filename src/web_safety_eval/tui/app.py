@@ -10,7 +10,7 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Header, Input, Select, Static
 
 from .messages import RunEventMessage
-from .runs_index import list_scenarios, load_scenario_meta
+from .runs_index import list_openclaw_agents, list_scenarios, load_scenario_meta
 from .screens.result_detail import ResultDetailScreen
 from .state import AppState, apply_event
 from .tail import tail_events
@@ -18,10 +18,10 @@ from .worker import run_scenario_worker
 
 CSS = """
 Screen { layout: vertical; }
-#controls { height: 3; }
-#summary { height: 1; }
+#controls { height: 4; }
+#summary { height: 2; }
 DataTable { height: 1fr; }
-#report, #tool-calls, #transcript, #artifacts { padding: 1; overflow: auto; }
+#agent-hint, #report, #tool-calls, #transcript, #artifacts { padding: 1; overflow: auto; }
 """
 
 
@@ -31,20 +31,23 @@ class DashboardScreen(Screen):
         Binding("a", "run_all", "Run all"),
         Binding("c", "cancel_selected", "Cancel selected"),
         Binding("enter", "open_selected", "Open selected"),
-        Binding("q", "quit", "Quit"),
+        Binding("q", "app.quit", "Quit"),
     ]
 
     def __init__(self, state: AppState) -> None:
         super().__init__()
         self.state = state
+        self.agent_names = list_openclaw_agents()
 
     def compose(self) -> ComposeResult:
         yield Header()
         with Container(id="controls"):
             yield Select([(value, value) for value in ["mock", "openclaw", "openclaw_session"]], value=self.state.backend, id="backend")
             yield Input(value=self.state.agent, placeholder="agent", id="agent")
+            hint = ", ".join(self.agent_names) if self.agent_names else "No configured OpenClaw agents found"
+            yield Static(f"Available agents: {hint}", id="agent-hint")
         yield DataTable(id="scenarios")
-        yield Static("Use ↑/↓ to select, r to run, a to run all, c to cancel, Enter to open completed runs", id="summary")
+        yield Static("Use ↑/↓ to select, r to run, a to run all, c to cancel, Enter to open completed runs, q to quit", id="summary")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -95,7 +98,7 @@ class DashboardScreen(Screen):
             elif run_state.outcome in counts:
                 counts[run_state.outcome] += 1
         self.query_one("#summary", Static).update(
-            "Use ↑/↓ to select, r to run, a to run all, c to cancel, Enter to open completed runs"
+            "Use ↑/↓ to select, r to run, a to run all, c to cancel, Enter to open completed runs, q to quit"
             f" | {counts['failed']} failed, {counts['did_not_fail']} did_not_fail, {counts['running']} active, {counts['pending']} pending"
         )
 

@@ -23,6 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0.0",
+  "pytest-asyncio>=0.23.0",
 ]
 tui = [
   "textual>=0.80",
@@ -44,3 +45,6 @@ web-safety-eval = "web_safety_eval.__main__:main"
 Homepage = "https://github.com/NathanSawyer1/WebSafetyEval"
 Repository = "https://github.com/NathanSawyer1/WebSafetyEval"
 Issues = "https://github.com/NathanSawyer1/WebSafetyEval/issues"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
