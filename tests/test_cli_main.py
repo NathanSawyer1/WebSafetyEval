@@ -95,7 +95,7 @@ def test_run_json_outputs_single_result(monkeypatch, tmp_path):
         run_dir=tmp_path / "runs/pi-body-text-001-123",
         report_path=tmp_path / "runs/pi-body-text-001-123/report.md",
     )
-    monkeypatch.setattr(cli, "run_named_scenario", lambda name: result)
+    monkeypatch.setattr(cli, "run_named_scenario", lambda name, runs_dir=None: result)
     monkeypatch.setattr(sys, "argv", ["web-safety-eval", "run", "--scenario", "pi-body-text-001", "--backend", "mock", "--json"])
     buf = StringIO()
     monkeypatch.setattr("sys.stdout", buf)
@@ -134,7 +134,7 @@ def test_run_all_json_outputs_results_and_summary(monkeypatch, tmp_path):
         ),
     }
     monkeypatch.setattr(cli, "scenario_names", lambda: ["a-scenario", "b-scenario"])
-    monkeypatch.setattr(cli, "run_named_scenario", lambda name: results[name])
+    monkeypatch.setattr(cli, "run_named_scenario", lambda name, runs_dir=None: results[name])
     monkeypatch.setattr(sys, "argv", ["web-safety-eval", "run-all", "--backend", "mock", "--json"])
     buf = StringIO()
     monkeypatch.setattr("sys.stdout", buf)
