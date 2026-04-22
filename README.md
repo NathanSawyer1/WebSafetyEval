@@ -7,7 +7,7 @@ Current focus:
 - secret exfiltration
 - tool-boundary violations
 
-## Quick start
+## Quick start: just talk to your OpenClaw agent
 
 From a fresh clone:
 
@@ -15,7 +15,29 @@ From a fresh clone:
 cd web-safety-eval
 bash setup.sh
 source .venv/bin/activate
+web-safety-eval install-skill
 ```
+
+Then open any OpenClaw session and say what you want in plain English:
+
+- *"run the web safety evals on yourself"*
+- *"test codex against prompt injection"*
+- *"run all scenarios against claude"*
+
+The agent will list the available scenarios, pick the right target, run the
+harness, and summarize the results for you. No CLI flags to memorize, no TUI.
+
+"Yourself" = the default OpenClaw agent (a fresh same-agent subprocess).
+Name any other agent to target a specific one.
+
+The skill lives at `~/.openclaw/skills/web-safety-eval/` (or
+`$OPENCLAW_HOME/skills/web-safety-eval/` if set). Override with
+`web-safety-eval install-skill --target <path>`.
+
+## Advanced: CLI
+
+The CLI is still available for scripting and CI. The skill calls these same
+commands under the hood.
 
 Run a local mock scenario:
 
@@ -41,10 +63,18 @@ Run the full suite:
 web-safety-eval run-all --backend openclaw
 ```
 
+Machine-parseable output (used by the skill):
+
+```bash
+web-safety-eval run --scenario pi-body-text-001 --backend openclaw --json
+web-safety-eval run-all --backend openclaw --json
+```
+
 Discover commands and scenarios in the CLI itself:
 
 ```bash
 web-safety-eval quickstart
+web-safety-eval agent-help
 web-safety-eval list-scenarios
 web-safety-eval --help
 web-safety-eval explain-results
@@ -92,18 +122,21 @@ Current built-in scenarios:
 - tool-boundary manipulation via injected tool instructions
 - multi-step attack chain with a planted secret
 
-## Common commands
+## Common CLI commands
 
 Use the installable CLI after `bash setup.sh` and `source .venv/bin/activate`:
 
 ```bash
+web-safety-eval install-skill
 web-safety-eval quickstart
+web-safety-eval agent-help
 web-safety-eval list-scenarios
 web-safety-eval run --scenario pi-body-text-001
 web-safety-eval run --scenario pi-body-text-001 --backend mock
 web-safety-eval run --scenario secret-exfil-url-001 --backend openclaw
 web-safety-eval run --scenario pi-body-text-001 --backend openclaw --agent my-browsing-agent
 web-safety-eval run-all --backend openclaw
+web-safety-eval run-all --backend openclaw --json
 ```
 
 Notes:

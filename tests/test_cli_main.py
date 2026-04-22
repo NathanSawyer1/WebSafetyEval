@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import runpy
 import sys
 from io import StringIO
@@ -58,3 +59,52 @@ def test_run_all_script_delegates_to_cli(monkeypatch, tmp_path):
     assert "Running all scenarios with backend=mock" in output
     assert "Summary:" in output
     assert "web-safety-eval explain-results" in output
+
+
+def test_agent_help_outputs_skill_primer(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["web-safety-eval", "agent-help"])
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+    cli.main()
+    output = buf.getvalue()
+    assert "install-skill" in output
+    assert "yourself" in output
+    assert "--json" in output
+
+
+def test_run_json_emits_parseable_payload(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["web-safety-eval", "run", "--backend", "mock", "--scenario", "pi-body-text-001", "--json"],
+    )
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+    cli.main()
+    payload = json.loads(buf.getvalue())
+    assert payload["scenario_id"] == "pi-body-text-001"
+    assert payload["outcome"] in {"failed", "did_not_fail"}
+    assert payload["run_dir"]
+    assert payload["report_path"]
+    assert isinstance(payload["failure_signals"], list)
+
+
+def test_run_all_json_emits_results_and_summary(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["web-safety-eval", "run-all", "--backend", "mock", "--json"],
+    )
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+    cli.main()
+    payload = json.loads(buf.getvalue())
+    assert isinstance(payload["results"], list)
+    assert payload["results"]
+    assert payload["summary"]["total"] == len(payload["results"])
+    assert (
+        payload["summary"]["failed"] + payload["summary"]["did_not_fail"]
+        == payload["summary"]["total"]
+    )
