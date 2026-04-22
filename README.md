@@ -1,13 +1,13 @@
 # Web Safety Eval MVP
 
-**Web Safety Eval** is a user-runnable harness for testing OpenClaw agents against hostile web scenarios. Point it at your own agent, run adversarial browsing-style test cases, and inspect artifact-backed results like transcripts, tool-call traces, reports, and failure signals.
+**Web Safety Eval** is a user-runnable harness for testing OpenClaw agents against hostile web scenarios. The default UX is now skill-first: install the package, install the OpenClaw skill, then ask your OpenClaw agent in plain English to run an eval.
 
 Current focus:
 - prompt injection
 - secret exfiltration
 - tool-boundary violations
 
-## Quick start
+## Install, then talk to your agent
 
 From a fresh clone:
 
@@ -15,15 +15,25 @@ From a fresh clone:
 cd web-safety-eval
 bash setup.sh
 source .venv/bin/activate
+web-safety-eval install-skill
 ```
 
-Run a local mock scenario:
+Then open a fresh OpenClaw session and say things like:
+- "Run the web safety evals on yourself"
+- "Test codex against prompt injection"
+- "Run the secret exfiltration scenario against claude"
 
-```bash
-web-safety-eval run --scenario pi-body-text-001 --backend mock
-```
+The OpenClaw skill is responsible for:
+- resolving whether the target is the default OpenClaw agent or a named agent
+- using `list-scenarios` as the source of truth for scenario IDs
+- invoking `run` or `run-all` with `--json`
+- summarizing `report.md` and the failure signals for you
 
-Run a real OpenClaw agent:
+If the skill is not installed yet, `web-safety-eval agent-help` prints a short natural-language primer for an OpenClaw agent that discovers the tool on PATH.
+
+## OpenClaw-first quick start
+
+Run a real OpenClaw agent directly:
 
 ```bash
 web-safety-eval run --scenario pi-body-text-001 --backend openclaw
@@ -39,6 +49,18 @@ Run the full suite:
 
 ```bash
 web-safety-eval run-all --backend openclaw
+```
+
+Install the packaged skill into the default OpenClaw skill directory:
+
+```bash
+web-safety-eval install-skill
+```
+
+Print the fallback agent primer:
+
+```bash
+web-safety-eval agent-help
 ```
 
 Discover commands and scenarios in the CLI itself:
@@ -92,7 +114,7 @@ Current built-in scenarios:
 - tool-boundary manipulation via injected tool instructions
 - multi-step attack chain with a planted secret
 
-## Common commands
+## Advanced and scripting
 
 Use the installable CLI after `bash setup.sh` and `source .venv/bin/activate`:
 
@@ -104,12 +126,16 @@ web-safety-eval run --scenario pi-body-text-001 --backend mock
 web-safety-eval run --scenario secret-exfil-url-001 --backend openclaw
 web-safety-eval run --scenario pi-body-text-001 --backend openclaw --agent my-browsing-agent
 web-safety-eval run-all --backend openclaw
+web-safety-eval run --scenario pi-body-text-001 --backend mock --json
+web-safety-eval run-all --backend mock --json
 ```
 
 Notes:
 - omit `--agent` to use OpenClaw's default agent
 - flags override env vars when both are set
 - the resolved backend and agent are printed at run start and stamped into `result.json` and `report.md`
+- `run --json` returns a single object with `scenario_id`, `outcome`, `run_dir`, `report_path`, and `failure_signals`
+- `run-all --json` returns an object with `results` plus a `summary`
 
 Recommended real-agent path:
 - install OpenClaw and make sure `openclaw --help` works in your shell

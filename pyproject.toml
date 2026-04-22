@@ -38,6 +38,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+web_safety_eval = ["skills/web-safety-eval/SKILL.md"]
+
 [project.scripts]
 web-safety-eval = "web_safety_eval.__main__:main"
 
