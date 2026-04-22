@@ -7,9 +7,9 @@ from web_safety_eval.openclaw_session_agent import OpenClawSessionAgent
 from web_safety_eval.runner import _evaluate, run_named_scenario
 
 
-def test_mock_pi_body_text_fails(monkeypatch):
+def test_mock_pi_body_text_fails(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
-    result = run_named_scenario("pi-body-text-001")
+    result = run_named_scenario("pi-body-text-001", runs_dir=tmp_path)
     assert result.outcome == "failed"
     assert result.run_dir is not None
     assert (result.run_dir / "result.json").exists()
@@ -56,9 +56,9 @@ def test_secret_leak_detector_fires_on_tool_args():
     assert failures[0].type == "secret_match_in_tool_args"
 
 
-def test_report_outcome_matches_result_json(monkeypatch):
+def test_report_outcome_matches_result_json(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
-    result = run_named_scenario("pi-body-text-001")
+    result = run_named_scenario("pi-body-text-001", runs_dir=tmp_path)
     assert result.run_dir is not None
 
     result_json = json.loads((result.run_dir / "result.json").read_text(encoding="utf-8"))
@@ -69,9 +69,9 @@ def test_report_outcome_matches_result_json(monkeypatch):
     assert report_md.count("- **") == len(result_json["failure_signals"])
 
 
-def test_run_artifact_shape_for_fake_system_scenario(monkeypatch):
+def test_run_artifact_shape_for_fake_system_scenario(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
-    result = run_named_scenario("fake-system-instruction-001")
+    result = run_named_scenario("fake-system-instruction-001", runs_dir=tmp_path)
     assert result.run_dir is not None
     expected = ["result.json", "report.md", "tool_calls.json", "transcript.json"]
     for name in expected:
@@ -81,9 +81,9 @@ def test_run_artifact_shape_for_fake_system_scenario(monkeypatch):
     assert parsed["scenario_id"] == "fake-system-instruction-001"
 
 
-def test_run_artifact_shape_for_tool_boundary_scenario(monkeypatch):
+def test_run_artifact_shape_for_tool_boundary_scenario(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
-    result = run_named_scenario("tool-boundary-001")
+    result = run_named_scenario("tool-boundary-001", runs_dir=tmp_path)
     assert result.run_dir is not None
     expected = ["result.json", "report.md", "tool_calls.json", "transcript.json"]
     for name in expected:
@@ -93,9 +93,9 @@ def test_run_artifact_shape_for_tool_boundary_scenario(monkeypatch):
     assert parsed["scenario_id"] == "tool-boundary-001"
 
 
-def test_run_artifact_shape_for_multi_step_scenario(monkeypatch):
+def test_run_artifact_shape_for_multi_step_scenario(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
-    result = run_named_scenario("multi-step-chain-001")
+    result = run_named_scenario("multi-step-chain-001", runs_dir=tmp_path)
     assert result.run_dir is not None
     expected = ["result.json", "report.md", "tool_calls.json", "transcript.json"]
     for name in expected:
@@ -105,9 +105,9 @@ def test_run_artifact_shape_for_multi_step_scenario(monkeypatch):
     assert parsed["scenario_id"] == "multi-step-chain-001"
 
 
-def test_mock_indirect_prompt_injection_fails(monkeypatch):
+def test_mock_indirect_prompt_injection_fails(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
-    result = run_named_scenario("indirect-prompt-injection-001")
+    result = run_named_scenario("indirect-prompt-injection-001", runs_dir=tmp_path)
     assert result.outcome == "failed"
     assert result.run_dir is not None
 
@@ -137,7 +137,7 @@ def test_result_json_includes_agent_metadata(tmp_path, monkeypatch):
     from web_safety_eval import runner
 
     monkeypatch.chdir(tmp_path)
-    result = runner.run_named_scenario("pi-body-text-001")
+    result = runner.run_named_scenario("pi-body-text-001", runs_dir=tmp_path / "isolated-runs")
 
     payload = json.loads((result.run_dir / "result.json").read_text())
     assert payload["agent"]["backend"] == "mock"
@@ -148,9 +148,9 @@ def test_result_json_includes_agent_metadata(tmp_path, monkeypatch):
 
 
 
-def test_events_jsonl_written_for_mock_run(monkeypatch):
+def test_events_jsonl_written_for_mock_run(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
-    result = run_named_scenario("pi-body-text-001")
+    result = run_named_scenario("pi-body-text-001", runs_dir=tmp_path)
     events_path = result.run_dir / "events.jsonl"
     assert events_path.exists()
     lines = [line for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -161,11 +161,20 @@ def test_events_jsonl_written_for_mock_run(monkeypatch):
     assert any(event["kind"] == "tool_called" for event in events)
 
 
-def test_cancelled_run_emits_run_cancelled(monkeypatch):
+def test_cancelled_run_emits_run_cancelled(tmp_path, monkeypatch):
     monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
     token = __import__('threading').Event()
     token.set()
-    result = run_named_scenario("multi-step-chain-001", cancel_token=token)
+    result = run_named_scenario("multi-step-chain-001", cancel_token=token, runs_dir=tmp_path)
     assert result.outcome == "cancelled"
     events = [json.loads(line) for line in (result.run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     assert events[-1]["kind"] == "run_cancelled"
+
+
+def test_run_named_scenario_honors_runs_dir_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("WEB_SAFETY_AGENT", "mock")
+    monkeypatch.setenv("WEB_SAFETY_RUNS_DIR", str(tmp_path / "env-runs"))
+    result = run_named_scenario("pi-body-text-001")
+    assert result.run_dir is not None
+    assert result.run_dir.parent == (tmp_path / "env-runs").resolve()
+

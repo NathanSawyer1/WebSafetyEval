@@ -29,3 +29,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local reset/session context
+.project-context.md

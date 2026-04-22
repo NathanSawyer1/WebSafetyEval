@@ -142,6 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
     run_parser.add_argument("--agent", default=os.environ.get("WEB_SAFETY_OPENCLAW_AGENT", ""))
     run_parser.add_argument("--json", action="store_true", help="Print structured JSON output")
+    run_parser.add_argument("--runs-dir", help="Override the output directory for run artifacts")
 
     run_all_parser = subparsers.add_parser(
         "run-all",
@@ -152,6 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_all_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
     run_all_parser.add_argument("--agent", default=os.environ.get("WEB_SAFETY_OPENCLAW_AGENT", ""))
     run_all_parser.add_argument("--json", action="store_true", help="Print structured JSON output")
+    run_all_parser.add_argument("--runs-dir", help="Override the output directory for run artifacts")
 
     tui_parser = subparsers.add_parser("tui", help="Launch the terminal UI")
     tui_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
@@ -226,7 +228,7 @@ def main() -> None:
         _apply_agent_env(args.backend, args.agent)
         os.environ["WEB_SAFETY_SCENARIO"] = args.scenario
         resolved_agent = _resolved_agent_label(args.backend, args.agent)
-        result = run_named_scenario(args.scenario)
+        result = run_named_scenario(args.scenario, runs_dir=args.runs_dir)
         if args.json:
             print(json.dumps(_result_payload(result)))
             return
@@ -241,7 +243,7 @@ def main() -> None:
         _validate_named_agent(parser, args.backend, args.agent)
         _apply_agent_env(args.backend, args.agent)
         resolved_agent = _resolved_agent_label(args.backend, args.agent)
-        results = [run_named_scenario(name) for name in scenario_names()]
+        results = [run_named_scenario(name, runs_dir=args.runs_dir) for name in scenario_names()]
         if args.json:
             summary = {
                 "failed": sum(1 for result in results if result.outcome == "failed"),

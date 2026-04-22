@@ -16,7 +16,7 @@ from .scenario_loader import load_scenario
 from .screenshots import capture_html_screenshot
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNS_DIR = ROOT / "runs"
+DEFAULT_RUNS_DIR = ROOT / "runs"
 
 # events.jsonl is an NDJSON stream with one JSON object per line.
 # v1 event kinds: run_started, agent_turn, step_started, tool_called,
@@ -158,9 +158,20 @@ def _evaluate(scenario: dict, tool_calls: list[ToolCall], final_answer: str) -> 
     return failures
 
 
-def run_named_scenario(name: str, *, cancel_token: threading.Event | None = None) -> RunResult:
+def resolve_runs_dir(runs_dir: str | Path | None = None) -> Path:
+    candidate = runs_dir or os.environ.get("WEB_SAFETY_RUNS_DIR")
+    return Path(candidate).expanduser().resolve() if candidate else DEFAULT_RUNS_DIR
+
+
+def run_named_scenario(
+    name: str,
+    *,
+    cancel_token: threading.Event | None = None,
+    runs_dir: str | Path | None = None,
+) -> RunResult:
     scenario = load_scenario(name)
-    run_dir = RUNS_DIR / f"{name}-{_timestamp()}"
+    base_runs_dir = resolve_runs_dir(runs_dir)
+    run_dir = base_runs_dir / f"{name}-{_timestamp()}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     transcript: list[dict[str, Any]] = []
