@@ -18,6 +18,7 @@ classifiers = [
 ]
 dependencies = [
   "anthropic>=0.40.0",
+  "pydantic>=2.8.0",
 ]
 
 [project.optional-dependencies]

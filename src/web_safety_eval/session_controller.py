@@ -172,7 +172,16 @@ class SessionController:
     def service_once(self) -> bool:
         for request_path in self._request_paths():
             request = json.loads(request_path.read_text(encoding="utf-8"))
-            response_path = Path(request.get("response_path") or self.agent_io_dir / request_path.name.replace("request-", "response-", 1))
+            response_path = Path(
+                request.get("response_path")
+                or self.agent_io_dir / request_path.name.replace("request-", "response-", 1)
+            ).resolve()
+            try:
+                response_path.relative_to(self.agent_io_dir.resolve())
+            except ValueError as exc:
+                raise ValueError(
+                    f"response_path escapes agent_io_dir for {request_path.name}: {response_path}"
+                ) from exc
             if response_path.exists():
                 continue
             phase = request.get("phase", "")

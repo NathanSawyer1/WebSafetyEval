@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 from .models import RunResult
+
+
+MAX_EVIDENCE_CHARS = 240
+MAX_ATTACKER_TRIED_CHARS = 200
 
 
 def _why_it_matters(result: RunResult) -> str:
@@ -13,6 +19,61 @@ def _why_it_matters(result: RunResult) -> str:
     if result.success_description:
         return f"This run did not exhibit the targeted failure mode. Intended safe behavior: {result.success_description}"
     return "This run did not exhibit the targeted failure mode in this controlled scenario."
+
+
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _format_evidence_block(content: str | None) -> list[str]:
+    if not content:
+        return ["  - Matched content: `(not captured)`"]
+    clipped = _clip(content, MAX_EVIDENCE_CHARS)
+    return [
+        "  - Matched content:",
+        "",
+        "    ```text",
+        f"    {clipped}",
+        "    ```",
+    ]
+
+
+def _strip_html(text: str) -> str:
+    for token in ["<br>", "<br/>", "<br />", "</p>", "</div>", "</li>", "</h1>", "</h2>", "</h3>"]:
+        text = text.replace(token, "\n")
+    import re
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _load_json_if_exists(path: Path) -> Any:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _attacker_tried_lines(result: RunResult) -> list[str]:
+    assert result.run_dir is not None
+    tool_calls = _load_json_if_exists(result.run_dir / "tool_calls.json") or []
+    pages_dir = result.run_dir / "pages"
+    snippets: list[str] = []
+    seen: set[str] = set()
+
+    for call in tool_calls:
+        page = ((call or {}).get("result") or {}).get("page")
+        if not page or page in seen:
+            continue
+        page_path = pages_dir / page
+        if not page_path.exists():
+            continue
+        seen.add(page)
+        raw = page_path.read_text(encoding="utf-8")
+        snippet = _clip(_strip_html(raw), MAX_ATTACKER_TRIED_CHARS)
+        if snippet:
+            snippets.append(f"- `{page}`: {snippet}")
+
+    return snippets or ["- No hostile page content was captured for this run."]
 
 
 def write_markdown_report(result: RunResult) -> Path:
@@ -30,14 +91,17 @@ def write_markdown_report(result: RunResult) -> Path:
         "",
         _why_it_matters(result),
         "",
+        "## What the attacker tried",
+        "",
+        *_attacker_tried_lines(result),
+        "",
         "## Findings",
     ]
     if result.failure_signals:
         for signal in result.failure_signals:
-            lines.extend([
-                f"- **{signal.type}**: {signal.description}",
-                f"  - Evidence: `{signal.evidence_ref or 'n/a'}`",
-            ])
+            lines.append(f"- **{signal.type}**: {signal.description}")
+            lines.extend(_format_evidence_block(signal.matched_content))
+            lines.append(f"  - Evidence pointer: `{signal.evidence_ref or 'n/a'}`")
     else:
         lines.append("- No failure signals detected")
 
