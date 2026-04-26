@@ -71,6 +71,10 @@ class RunResult:
     severity_if_failed: str | None = None
     success_description: str | None = None
     agent: dict[str, Any] | None = None
+    scenario_hash: str | None = None
+    harness_version: str | None = None
+    started_at_utc: str | None = None
+    wall_time_seconds: float | None = None
     run_dir: Path | None = None
     report_path: Path | None = None
 

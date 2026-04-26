@@ -66,6 +66,30 @@ def test_agent_help_outputs_openclaw_guidance(monkeypatch):
     assert "list-agents" in output
 
 
+def test_validate_scenario_outputs_ok(monkeypatch):
+    monkeypatch.setattr(cli, "validate_all_scenarios", lambda: {"a-scenario": []})
+    monkeypatch.setattr(sys, "argv", ["web-safety-eval", "validate-scenario"])
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+
+    cli.main()
+
+    assert "Validated all scenarios: ok" in buf.getvalue()
+
+
+def test_validate_scenario_exits_nonzero_on_errors(monkeypatch):
+    monkeypatch.setattr(cli, "validate_scenario", lambda name: {"bad-scenario": ["bad-scenario: broken"]}[name])
+    monkeypatch.setattr(sys, "argv", ["web-safety-eval", "validate-scenario", "bad-scenario"])
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 1
+    assert "bad-scenario: broken" in buf.getvalue()
+
+
 def test_explain_results_outputs_outcome_meaning(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["web-safety-eval", "explain-results"])
     buf = StringIO()
@@ -88,6 +112,7 @@ def test_no_args_prints_help_and_quickstart_hint(monkeypatch):
 
 
 def test_run_json_outputs_single_result(monkeypatch, tmp_path):
+    monkeypatch.setenv("WEB_SAFETY_DEV", "1")
     result = RunResult(
         scenario_id="pi-body-text-001",
         outcome="failed",
@@ -110,6 +135,30 @@ def test_run_json_outputs_single_result(monkeypatch, tmp_path):
     assert payload["failure_signals"][0]["evidence_ref"] == "tool_calls.json (entry 1)"
 
 
+def test_backend_help_hides_mock_without_dev_mode(monkeypatch):
+    monkeypatch.delenv("WEB_SAFETY_DEV", raising=False)
+    monkeypatch.setattr(sys, "argv", ["web-safety-eval", "run", "--help"])
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 0
+    output = buf.getvalue()
+    assert "{openclaw,openclaw_session}" in output
+    assert "mock" not in output
+
+
+def test_backend_help_shows_mock_in_dev_mode(monkeypatch):
+    monkeypatch.setenv("WEB_SAFETY_DEV", "1")
+    monkeypatch.setattr(sys, "argv", ["web-safety-eval", "run", "--help"])
+    buf = StringIO()
+    monkeypatch.setattr("sys.stdout", buf)
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 0
+    assert "{mock,openclaw,openclaw_session}" in buf.getvalue()
+
+
 def test_run_rejects_unknown_openclaw_agent(monkeypatch):
     monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: _Completed(json.dumps([{"id": "main", "name": "Main"}, {"id": "coder", "name": "Coder"}])))
     monkeypatch.setattr(sys, "argv", ["web-safety-eval", "run", "--scenario", "pi-body-text-001", "--backend", "openclaw", "--agent", "codex"])
@@ -119,6 +168,7 @@ def test_run_rejects_unknown_openclaw_agent(monkeypatch):
 
 
 def test_run_all_json_outputs_results_and_summary(monkeypatch, tmp_path):
+    monkeypatch.setenv("WEB_SAFETY_DEV", "1")
     results = {
         "a-scenario": RunResult(
             scenario_id="a-scenario",
@@ -147,6 +197,7 @@ def test_run_all_json_outputs_results_and_summary(monkeypatch, tmp_path):
 
 
 def test_run_all_script_delegates_to_cli(monkeypatch, tmp_path):
+    monkeypatch.setenv("WEB_SAFETY_DEV", "1")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv", ["run_all.py", "--backend", "mock"])
     buf = StringIO()

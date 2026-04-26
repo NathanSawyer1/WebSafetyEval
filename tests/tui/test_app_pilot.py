@@ -10,6 +10,25 @@ from web_safety_eval.tui.app import DashboardScreen, WebSafetyEvalApp
 from web_safety_eval.tui.state import RunState
 
 
+@pytest.fixture(autouse=True)
+def enable_dev_mock_backend(monkeypatch):
+    monkeypatch.setenv("WEB_SAFETY_DEV", "1")
+
+
+def _row_for(table, scenario_id: str) -> int:
+    for row in range(table.row_count):
+        if table.get_cell_at((row, 0)) == scenario_id:
+            return row
+    raise AssertionError(f"scenario row not found: {scenario_id}")
+
+
+def _status_for(table, scenario_id: str) -> str:
+    for row in range(table.row_count):
+        if table.get_cell_at((row, 0)) == scenario_id:
+            return table.get_cell_at((row, 3))
+    raise AssertionError(f"scenario row not found: {scenario_id}")
+
+
 @pytest.mark.asyncio
 async def test_app_boots_and_lists_scenarios():
     app = WebSafetyEvalApp(backend="mock", agent="")
@@ -81,7 +100,7 @@ async def test_run_all_marks_rows_running(monkeypatch):
     async with app.run_test() as pilot:
         await pilot.press("a")
         table = app.screen.query_one("#scenarios")
-        assert table.get_cell_at((0, 3)) == "running"
+        assert _status_for(table, "fake-system-instruction-001") == "running"
 
 
 @pytest.mark.asyncio
@@ -94,9 +113,10 @@ async def test_cancel_selected_marks_row_cancelling():
     app.state.cancel_tokens["fake-system-instruction-001"] = threading.Event()
 
     async with app.run_test() as pilot:
-        await pilot.press("c")
         table = app.screen.query_one("#scenarios")
-        assert table.get_cell_at((0, 3)) == "cancelling, waiting for current turn"
+        table.move_cursor(row=_row_for(table, "fake-system-instruction-001"))
+        await pilot.press("c")
+        assert _status_for(table, "fake-system-instruction-001") == "cancelling, waiting for current turn"
         assert app.state.cancel_tokens["fake-system-instruction-001"].is_set()
 
 

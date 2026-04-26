@@ -39,10 +39,9 @@ source "${VENV_DIR}/bin/activate"
 
 echo "==> Upgrading pip"
 python -m pip install --upgrade pip
-python -m pip install -e .[dev]
 
 echo "==> Installing project and dev dependencies"
-pip install -e '.[dev]'
+python -m pip install -e '.[dev]'
 
 echo "==> Running preflight"
 python scripts/preflight.py
@@ -54,7 +53,7 @@ echo "Virtual environment: ${VENV_DIR}"
 echo ""
 echo "Next steps:"
 echo " source ${VENV_DIR}/bin/activate"
-echo " python3 run_demo.py --backend mock"
+echo " WEB_SAFETY_DEV=1 python3 run_demo.py --backend mock"
 echo ""
 echo "Or run a real OpenClaw eval once openclaw is installed:"
 echo " WEB_SAFETY_AGENT=openclaw python3 run_all.py"

@@ -26,7 +26,7 @@ class RunState:
 
 @dataclass
 class AppState:
-    backend: str = "mock"
+    backend: str = "openclaw"
     agent: str = ""
     runs: dict[str, RunState] = field(default_factory=dict)
     cancel_tokens: dict[str, threading.Event] = field(default_factory=dict)

@@ -133,6 +133,7 @@ def test_run_demo_flag_agent_overrides_env(monkeypatch, tmp_path):
     from pathlib import Path
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("WEB_SAFETY_DEV", "1")
     monkeypatch.setenv("WEB_SAFETY_OPENCLAW_AGENT", "from-env")
     monkeypatch.setattr(sys, "argv", ["run_demo.py", "--backend", "mock", "--agent", "from-flag", "--scenario", "pi-body-text-001"])
 

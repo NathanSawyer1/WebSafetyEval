@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
 import time
 from dataclasses import asdict
 from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +27,49 @@ DEFAULT_RUNS_DIR = ROOT / "runs"
 
 def _timestamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _harness_version() -> str:
+    try:
+        return version("web-safety-eval")
+    except PackageNotFoundError:
+        return "0.1.0"
+
+
+def _scenario_hash(scenario: dict) -> str:
+    scenario_dir = Path(scenario["scenario_dir"])
+    digest = hashlib.sha256()
+    scenario_json = scenario_dir / "scenario.json"
+    digest.update(b"scenario.json\0")
+    digest.update(scenario_json.read_bytes())
+    pages_dir = scenario_dir / "pages"
+    if pages_dir.exists():
+        for path in sorted(p for p in pages_dir.rglob("*") if p.is_file()):
+            rel = path.relative_to(scenario_dir).as_posix().encode("utf-8")
+            digest.update(rel + b"\0")
+            digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _append_runs_index(base_runs_dir: Path, result: RunResult) -> None:
+    base_runs_dir.mkdir(parents=True, exist_ok=True)
+    agent = result.agent or {}
+    payload = {
+        "schema_version": 1,
+        "scenario_id": result.scenario_id,
+        "agent": agent.get("agent"),
+        "backend": agent.get("backend"),
+        "scenario_hash": result.scenario_hash,
+        "harness_version": result.harness_version,
+        "outcome": result.outcome,
+        "failure_count": len(result.failure_signals),
+        "started_at_utc": result.started_at_utc,
+        "wall_time_seconds": result.wall_time_seconds,
+        "run_dir": str(result.run_dir) if result.run_dir else None,
+        "report_path": str(result.report_path) if result.report_path else None,
+    }
+    with (base_runs_dir / "index.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, separators=(",", ":")) + "\n")
 
 
 def _write_json(path: Path, data: Any) -> None:
@@ -170,8 +215,10 @@ def run_named_scenario(
     runs_dir: str | Path | None = None,
 ) -> RunResult:
     scenario = load_scenario(name)
+    started_at = datetime.now(UTC)
+    monotonic_start = time.monotonic()
     base_runs_dir = resolve_runs_dir(runs_dir)
-    run_dir = base_runs_dir / f"{name}-{_timestamp()}"
+    run_dir = base_runs_dir / f"{name}-{started_at.strftime('%Y%m%dT%H%M%SZ')}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     transcript: list[dict[str, Any]] = []
@@ -182,7 +229,7 @@ def run_named_scenario(
     screens_dir.mkdir(exist_ok=True)
 
     agent = build_agent(run_dir=run_dir, entry_page=scenario.get("entry_page"))
-    fallback_backend = os.environ.get("WEB_SAFETY_AGENT", "mock").strip().lower() or "mock"
+    fallback_backend = os.environ.get("WEB_SAFETY_AGENT", "openclaw").strip().lower() or "openclaw"
     fallback_agent = (os.environ.get("WEB_SAFETY_OPENCLAW_AGENT") or "").strip()
     if not fallback_agent:
         fallback_agent = "openclaw-default" if fallback_backend == "openclaw" else "unspecified"
@@ -291,6 +338,8 @@ def run_named_scenario(
     _write_json(run_dir / "tool_calls.json", tool_calls_data)
     _write_json(run_dir / "transcript.json", transcript)
 
+    wall_time_seconds = round(time.monotonic() - monotonic_start, 3)
+
     result = RunResult(
         scenario_id=scenario["id"],
         outcome=outcome,
@@ -300,11 +349,16 @@ def run_named_scenario(
         severity_if_failed=scenario.get("severity_if_failed"),
         success_description=(scenario.get("success") or {}).get("description"),
         agent=agent_metadata,
+        scenario_hash=_scenario_hash(scenario),
+        harness_version=_harness_version(),
+        started_at_utc=started_at.isoformat().replace("+00:00", "Z"),
+        wall_time_seconds=wall_time_seconds,
         run_dir=run_dir,
     )
     result_path = run_dir / "result.json"
     _write_json(result_path, result.to_dict())
-    report_path = write_markdown_report(result)
+    report_path = write_markdown_report(result, planted_secrets=scenario.get("planted_secrets", []))
     result.report_path = report_path
     _write_json(result_path, result.to_dict())
+    _append_runs_index(base_runs_dir, result)
     return result

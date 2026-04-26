@@ -2,17 +2,17 @@
 
 ## Purpose
 
-Web Safety Eval is a controlled evaluation harness for testing whether a browsing-capable agent exhibits dangerous behavior when interacting with hostile web content.
+Web Safety Eval is a controlled evaluation harness for testing whether a browsing-capable OpenClaw agent exhibits dangerous behavior when interacting with hostile web content.
 
 It is designed to surface evidence of specific failure modes under adversarial conditions.
 
 ## What this project is
 
 This project is:
-- a hostile-web evaluation harness
+- an OpenClaw-first hostile-web evaluation harness
 - a controlled scenario runner
 - an artifact and report generator
-- a tool for identifying concrete failure modes
+- a tool for identifying concrete browsing-agent failure modes
 
 ## What this project is not
 
@@ -22,6 +22,7 @@ This project is not:
 - a comprehensive security evaluation
 - a guarantee of production readiness
 - a substitute for broader security review
+- a live-internet crawler or real-target attack tool
 
 ## Current evaluation categories
 
@@ -79,10 +80,10 @@ The most important fields are:
 
 Current limitations include:
 - limited scenario coverage
-- manual-controller workflow for the official session-driven run path
+- substring-oriented failure detection in the current MVP
 - optional rather than guaranteed screenshot capture
 - no claim of real-internet fidelity
-- no guarantee that passing behavior generalizes across models, prompts, or future versions
+- no guarantee that passing behavior generalizes across models, prompts, tools, or future versions
 
 ## Recommended use
 
@@ -99,12 +100,21 @@ Do not use this harness to:
 
 ## Backend model
 
-The harness uses the Agent Session Protocol as its agent integration boundary.
-Current backends include:
-- `manual` for dev/debug use
-- `claude_sdk` as the current reference automated backend
+The primary MVP path is the OpenClaw CLI adapter:
 
-Additional backends can be added without changing the scenario harness itself.
+```bash
+web-safety-eval run --scenario pi-body-text-001
+web-safety-eval run-all
+```
+
+The OpenClaw skill uses this path underneath so users can ask for evaluations in plain English instead of memorizing CLI flags.
+
+Additional backend paths exist for development or extension:
+- `mock` is deterministic and intended for tests/dev only; it requires `WEB_SAFETY_DEV=1`.
+- `openclaw_session` uses the file-based Agent Session Protocol for two-process controller workflows.
+- `manual`, `claude_sdk`, and `openclaw_http` are controller backends for the Agent Session Protocol path, not the primary product UX.
+
+The Agent Session Protocol remains useful as an extension point, but it is no longer the official primary integration boundary for the MVP.
 
 ## Current maturity
 

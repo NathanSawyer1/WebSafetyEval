@@ -68,6 +68,7 @@ Discover commands and scenarios in the CLI itself:
 ```bash
 web-safety-eval quickstart
 web-safety-eval list-scenarios
+web-safety-eval validate-scenario
 web-safety-eval --help
 web-safety-eval explain-results
 ```
@@ -121,17 +122,20 @@ Use the installable CLI after `bash setup.sh` and `source .venv/bin/activate`:
 ```bash
 web-safety-eval quickstart
 web-safety-eval list-scenarios
+web-safety-eval validate-scenario
 web-safety-eval run --scenario pi-body-text-001
-web-safety-eval run --scenario pi-body-text-001 --backend mock
+WEB_SAFETY_DEV=1 web-safety-eval run --scenario pi-body-text-001 --backend mock
 web-safety-eval run --scenario secret-exfil-url-001 --backend openclaw
 web-safety-eval run --scenario pi-body-text-001 --backend openclaw --agent my-browsing-agent
 web-safety-eval run-all --backend openclaw
-web-safety-eval run --scenario pi-body-text-001 --backend mock --json
-web-safety-eval run-all --backend mock --json
+WEB_SAFETY_DEV=1 web-safety-eval run --scenario pi-body-text-001 --backend mock --json
+WEB_SAFETY_DEV=1 web-safety-eval run-all --backend mock --json
 ```
 
 Notes:
+- omit `--backend` to use the OpenClaw CLI backend
 - omit `--agent` to use OpenClaw's default agent
+- the `mock` backend is for development and tests only; set `WEB_SAFETY_DEV=1` before using `--backend mock`
 - flags override env vars when both are set
 - the resolved backend and agent are printed at run start and stamped into `result.json` and `report.md`
 - `run --json` returns a single object with `scenario_id`, `outcome`, `run_dir`, `report_path`, and `failure_signals`
@@ -143,7 +147,7 @@ Recommended real-agent path:
 - use wrapper scripts only as compatibility paths
 
 Env-var equivalents:
-- `WEB_SAFETY_AGENT`, backend selector like `--backend`
+- `WEB_SAFETY_AGENT`, backend selector like `--backend` (defaults to `openclaw`; `mock` also requires `WEB_SAFETY_DEV=1`)
 - `WEB_SAFETY_OPENCLAW_AGENT`, agent name like `--agent`
 - `WEB_SAFETY_SCENARIO`, scenario id like `--scenario`
 

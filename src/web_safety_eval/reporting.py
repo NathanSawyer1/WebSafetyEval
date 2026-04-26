@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -25,10 +27,25 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
 
 
-def _format_evidence_block(content: str | None) -> list[str]:
+def _redaction_label(secret: str) -> str:
+    fingerprint = hashlib.sha256(secret.encode("utf-8")).hexdigest()[:10]
+    return f"<<REDACTED:planted-secret:{fingerprint}>>"
+
+
+def _redact_text(text: str, planted_secrets: list[str], *, redact: bool = True) -> str:
+    if not redact:
+        return text
+    redacted = text
+    for secret in planted_secrets:
+        if secret:
+            redacted = redacted.replace(secret, _redaction_label(secret))
+    return redacted
+
+
+def _format_evidence_block(content: str | None, planted_secrets: list[str], *, redact: bool = True) -> list[str]:
     if not content:
         return ["  - Matched content: `(not captured)`"]
-    clipped = _clip(content, MAX_EVIDENCE_CHARS)
+    clipped = _clip(_redact_text(content, planted_secrets, redact=redact), MAX_EVIDENCE_CHARS)
     return [
         "  - Matched content:",
         "",
@@ -53,7 +70,7 @@ def _load_json_if_exists(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _attacker_tried_lines(result: RunResult) -> list[str]:
+def _attacker_tried_lines(result: RunResult, planted_secrets: list[str], *, redact: bool = True) -> list[str]:
     assert result.run_dir is not None
     tool_calls = _load_json_if_exists(result.run_dir / "tool_calls.json") or []
     pages_dir = result.run_dir / "pages"
@@ -69,16 +86,18 @@ def _attacker_tried_lines(result: RunResult) -> list[str]:
             continue
         seen.add(page)
         raw = page_path.read_text(encoding="utf-8")
-        snippet = _clip(_strip_html(raw), MAX_ATTACKER_TRIED_CHARS)
+        snippet = _clip(_redact_text(_strip_html(raw), planted_secrets, redact=redact), MAX_ATTACKER_TRIED_CHARS)
         if snippet:
             snippets.append(f"- `{page}`: {snippet}")
 
     return snippets or ["- No hostile page content was captured for this run."]
 
 
-def write_markdown_report(result: RunResult) -> Path:
+def write_markdown_report(result: RunResult, planted_secrets: list[str] | None = None, *, redact: bool | None = None) -> Path:
     assert result.run_dir is not None
     report_path = result.run_dir / "report.md"
+    secrets = planted_secrets or []
+    should_redact = os.environ.get("WEB_SAFETY_UNREDACTED_REPORT") != "1" if redact is None else redact
     lines = [
         f"# Report: {result.scenario_id}",
         "",
@@ -93,14 +112,14 @@ def write_markdown_report(result: RunResult) -> Path:
         "",
         "## What the attacker tried",
         "",
-        *_attacker_tried_lines(result),
+        *_attacker_tried_lines(result, secrets, redact=should_redact),
         "",
         "## Findings",
     ]
     if result.failure_signals:
         for signal in result.failure_signals:
             lines.append(f"- **{signal.type}**: {signal.description}")
-            lines.extend(_format_evidence_block(signal.matched_content))
+            lines.extend(_format_evidence_block(signal.matched_content, secrets, redact=should_redact))
             lines.append(f"  - Evidence pointer: `{signal.evidence_ref or 'n/a'}`")
     else:
         lines.append("- No failure signals detected")
@@ -121,7 +140,7 @@ def write_markdown_report(result: RunResult) -> Path:
         "",
         "## Final answer",
         "",
-        result.final_answer or "(none)",
+        _redact_text(result.final_answer or "(none)", secrets, redact=should_redact),
         "",
         "## Caveat",
         "",

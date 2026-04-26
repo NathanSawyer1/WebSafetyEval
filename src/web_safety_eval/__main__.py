@@ -9,11 +9,13 @@ from pathlib import Path
 
 from .install_skill import install_skill
 from .runner import run_named_scenario
+from .scenario_loader import validate_all_scenarios, validate_scenario
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = ROOT / "scenarios"
 QUICKSTART_TEXT = """Quick start:
   web-safety-eval list-scenarios
+  web-safety-eval validate-scenario
   web-safety-eval list-agents
   web-safety-eval run --scenario pi-body-text-001
   web-safety-eval run --scenario pi-body-text-001 --backend openclaw
@@ -74,12 +76,34 @@ def _apply_agent_env(backend: str, agent: str) -> None:
         os.environ.pop("WEB_SAFETY_OPENCLAW_AGENT", None)
 
 
+def _dev_mode_enabled() -> bool:
+    return os.environ.get("WEB_SAFETY_DEV") == "1"
+
+
+def _backend_choices() -> list[str]:
+    choices = ["openclaw", "openclaw_session"]
+    if _dev_mode_enabled():
+        choices.insert(0, "mock")
+    return choices
+
+
+def _default_backend() -> str:
+    backend = os.environ.get("WEB_SAFETY_AGENT", "openclaw").strip().lower() or "openclaw"
+    if backend in _backend_choices():
+        return backend
+    return "openclaw"
+
+
 def _result_payload(result) -> dict[str, object]:
     return {
         "scenario_id": result.scenario_id,
         "outcome": result.outcome,
         "run_dir": str(result.run_dir) if result.run_dir else None,
         "report_path": str(result.report_path) if result.report_path else None,
+        "scenario_hash": result.scenario_hash,
+        "harness_version": result.harness_version,
+        "started_at_utc": result.started_at_utc,
+        "wall_time_seconds": result.wall_time_seconds,
         "failure_signals": [
             {
                 "type": signal.type,
@@ -139,7 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     run_parser.add_argument("--scenario", default=os.environ.get("WEB_SAFETY_SCENARIO", "pi-body-text-001"))
-    run_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
+    run_parser.add_argument("--backend", choices=_backend_choices(), default=_default_backend())
     run_parser.add_argument("--agent", default=os.environ.get("WEB_SAFETY_OPENCLAW_AGENT", ""))
     run_parser.add_argument("--json", action="store_true", help="Print structured JSON output")
     run_parser.add_argument("--runs-dir", help="Override the output directory for run artifacts")
@@ -150,13 +174,13 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=QUICKSTART_TEXT,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    run_all_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
+    run_all_parser.add_argument("--backend", choices=_backend_choices(), default=_default_backend())
     run_all_parser.add_argument("--agent", default=os.environ.get("WEB_SAFETY_OPENCLAW_AGENT", ""))
     run_all_parser.add_argument("--json", action="store_true", help="Print structured JSON output")
     run_all_parser.add_argument("--runs-dir", help="Override the output directory for run artifacts")
 
     tui_parser = subparsers.add_parser("tui", help="Launch the terminal UI")
-    tui_parser.add_argument("--backend", choices=["mock", "openclaw", "openclaw_session"], default=os.environ.get("WEB_SAFETY_AGENT", "mock"))
+    tui_parser.add_argument("--backend", choices=_backend_choices(), default=_default_backend())
     tui_parser.add_argument("--agent", default=os.environ.get("WEB_SAFETY_OPENCLAW_AGENT", ""))
 
     install_skill_parser = subparsers.add_parser("install-skill", help="Install the packaged OpenClaw skill")
@@ -167,6 +191,9 @@ def build_parser() -> argparse.ArgumentParser:
     list_agents_parser = subparsers.add_parser("list-agents", help="List available OpenClaw agents")
     list_agents_parser.add_argument("--json", action="store_true", help="Print structured JSON output")
     subparsers.add_parser("list-scenarios", help="List available scenarios")
+    validate_parser = subparsers.add_parser("validate-scenario", help="Validate one scenario or all scenarios")
+    validate_parser.add_argument("scenario", nargs="?", help="Scenario id to validate; omit to validate all")
+    validate_parser.add_argument("--json", action="store_true", help="Print structured JSON output")
     subparsers.add_parser("quickstart", help="Print copy-paste usage examples")
     subparsers.add_parser("explain-results", help="Explain outcome labels and where to inspect artifacts")
     return parser
@@ -221,6 +248,26 @@ def main() -> None:
     if command == "list-scenarios":
         for name in scenario_names():
             print(name)
+        return
+
+    if command == "validate-scenario":
+        if args.scenario:
+            results = {args.scenario: validate_scenario(args.scenario)}
+        else:
+            results = validate_all_scenarios()
+        error_count = sum(len(errors) for errors in results.values())
+        if args.json:
+            print(json.dumps({"ok": error_count == 0, "error_count": error_count, "results": results}))
+        else:
+            if error_count == 0:
+                target = args.scenario or "all scenarios"
+                print(f"Validated {target}: ok")
+            else:
+                for name, errors in results.items():
+                    for error in errors:
+                        print(error)
+        if error_count:
+            raise SystemExit(1)
         return
 
     if command == "run":

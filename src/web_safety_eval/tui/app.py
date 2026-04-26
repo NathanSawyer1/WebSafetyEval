@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 
 from textual import work
@@ -42,7 +43,7 @@ class DashboardScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
         with Container(id="controls"):
-            yield Select([(value, value) for value in ["mock", "openclaw", "openclaw_session"]], value=self.state.backend, id="backend")
+            yield Select([(value, value) for value in (["mock"] if os.environ.get("WEB_SAFETY_DEV") == "1" else []) + ["openclaw", "openclaw_session"]], value=self.state.backend, id="backend")
             yield Input(value=self.state.agent, placeholder="agent", id="agent")
             hint = ", ".join(self.agent_names) if self.agent_names else "No configured OpenClaw agents found"
             yield Static(f"Available agents: {hint}", id="agent-hint")
@@ -169,7 +170,7 @@ class DashboardScreen(Screen):
 class WebSafetyEvalApp(App):
     CSS = CSS
 
-    def __init__(self, *, backend: str = "mock", agent: str = "") -> None:
+    def __init__(self, *, backend: str = "openclaw", agent: str = "") -> None:
         super().__init__()
         self.state = AppState(backend=backend, agent=agent)
 
@@ -177,5 +178,5 @@ class WebSafetyEvalApp(App):
         self.push_screen(DashboardScreen(self.state))
 
 
-def launch(*, backend: str = "mock", agent: str = "") -> None:
+def launch(*, backend: str = "openclaw", agent: str = "") -> None:
     WebSafetyEvalApp(backend=backend, agent=agent).run()

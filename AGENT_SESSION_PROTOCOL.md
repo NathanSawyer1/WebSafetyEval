@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The Agent Session Protocol defines the boundary between the Python evaluation harness and any agent backend that can make decisions during a run.
+The Agent Session Protocol defines a secondary, file-based integration path between the Python evaluation harness and an external controller/backend that can make decisions during a run.
 
-This protocol is a secondary, file-based integration path. The primary MVP path is the OpenClaw CLI adapter documented in OFFICIAL_RUN_PATH.md.
+The primary MVP path is the OpenClaw CLI adapter documented in `OFFICIAL_RUN_PATH.md`. Use this protocol when you need a two-process workflow, manual debugging, or an experimental backend that does not fit the OpenClaw CLI adapter yet.
 
 ## Design goals
 
@@ -12,7 +12,7 @@ This protocol is a secondary, file-based integration path. The primary MVP path 
 - file-based and simple to debug
 - deterministic artifact layout
 - easy to service manually or programmatically
-- suitable for multiple adapters
+- suitable for experimental adapters
 
 ## Core idea
 
@@ -127,13 +127,14 @@ A backend should fail clearly when:
 
 The harness may treat missing responses as timeouts.
 
-## Current reference backends
+## Current controller backends
 
-Current backends include:
+Current controller backends include:
 - `manual` — dev/debug backend
-- `claude_sdk` — reference automated backend
+- `claude_sdk` — experimental automated backend
+- `openclaw_http` — experimental HTTP-backed controller
 
-These are implementation choices, not part of the protocol itself.
+These are implementation choices for the secondary protocol path. They are not part of the protocol itself and are not the primary MVP integration path.
 
 ## What the protocol does not define
 
@@ -156,7 +157,7 @@ Any future incompatible change should bump the version and update this document 
 ## MVP recommendation
 
 For the MVP:
-- treat this protocol as the official agent integration boundary
-- treat `claude_sdk` as the reference backend
-- treat `manual` as dev/debug only
-- treat future OpenClaw-native support as an adapter built on top of this protocol, not as the protocol itself
+- use the OpenClaw CLI adapter as the primary integration path
+- use the OpenClaw skill as the default human-facing UX
+- keep this file-based protocol as a documented extension/debug path
+- treat `manual`, `claude_sdk`, and `openclaw_http` as optional controller implementations, not product defaults
